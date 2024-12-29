@@ -1,4 +1,3 @@
-import * as vscode from "vscode";
 import axios from "axios";
 import { extractTestCases } from "./responseParser";
 
@@ -11,7 +10,7 @@ query getQuestionDetail($titleSlug: String!) {
 }
 `;
 
-export async function testCaseFromUrl(url: string) {
+export async function testCaseFromUrl(url: string): Promise<any> {
   try {
     const problemName = extractProblemName(url);
 
@@ -23,7 +22,7 @@ export async function testCaseFromUrl(url: string) {
 
       const content = response.data.data.question.content;
       const testCases = extractTestCases(content);
-      console.log(testCases);
+      return testCases;
     } catch (error) {
       console.error(error);
     }
@@ -32,7 +31,7 @@ export async function testCaseFromUrl(url: string) {
   }
 }
 
-function extractProblemName(url: string): string {
+export function extractProblemName(url: string): string {
   const match = url.match(/https:\/\/leetcode\.com\/problems\/([^\/]+)\//);
   if (match && match[1]) {
     return match[1];
