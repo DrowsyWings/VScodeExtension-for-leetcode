@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { fetchTestCases } from "./commands/fetchTestCases";
+import { runTestCases } from "./commands/runTestCases";
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -14,11 +15,13 @@ export function activate(context: vscode.ExtensionContext) {
     fetchTestCases
   );
 
-  // const disposable2 = vscode.commands.registerCommand('hello2-from-leetcode',()=>{
-  // 	vscode.window.showInformationMessage('The Second command');
-  // });
+  const disposable2 = vscode.commands.registerCommand(
+    "cph.RunTestCases",
+    runTestCases
+  );
 
   context.subscriptions.push(disposable);
+  context.subscriptions.push(disposable2);
 }
 
 // This method is called when your extension is deactivated
