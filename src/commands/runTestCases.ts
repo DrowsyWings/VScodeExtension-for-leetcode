@@ -1,51 +1,33 @@
-// src/commands/runTestCases.ts
-import * as vscode from "vscode";
-import { CodeExecutor } from "../services/codeExectuor";
-import { TestCasesPanel } from "../ui/webView";
+import vscode from "vscode";
+import { executeCode } from "../services/codeExectuor";
+import path from "path";
 
 export async function runTestCases() {
-  try {
-    // Get the active editor
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
-      throw new Error("No active editor found");
-    }
-
-    // Get the full file path
-    const filePath = editor.document.uri.fsPath;
-
-    // Determine the language from the file extension
-    const fileExtension = filePath.split(".").pop()?.toLowerCase();
-
-    let language: string;
-    switch (fileExtension) {
-      case "cpp":
-        language = "cpp";
-        break;
-      case "py":
-        language = "python";
-        break;
-      default:
-        throw new Error(
-          "Unsupported file type. Only C++ and Python are supported."
-        );
-    }
-
-    // Save the current file
-    await editor.document.save();
-
-    // Execute the code
-    const executor = new CodeExecutor();
-    await executor.executeCode(filePath, language);
-
-    // Update the webview panel
-    const panel = TestCasesPanel.createOrShow();
-    await panel.updateContent();
-
-    vscode.window.showInformationMessage("Test cases executed successfully!");
-  } catch (error: any) {
-    vscode.window.showErrorMessage(
-      `Failed to run test cases: ${error.message}`
-    );
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showErrorMessage("No active editor found!");
+    return;
   }
+
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!workspaceFolder) {
+    vscode.window.showErrorMessage("No workspace folder found!");
+    return;
+  }
+
+  const filePath = editor.document.fileName;
+  const language = filePath.endsWith(".py")
+    ? "py"
+    : filePath.endsWith(".cpp")
+    ? "cpp"
+    : null;
+  if (!language) {
+    vscode.window.showErrorMessage(
+      "Unsupported language! Only Python and C++ are supported."
+    );
+    return;
+  }
+
+  const problemName = path.basename(filePath, path.extname(filePath));
+  await executeCode(language, workspaceFolder, problemName);
 }

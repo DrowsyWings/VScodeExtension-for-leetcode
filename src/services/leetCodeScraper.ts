@@ -5,12 +5,23 @@ const graphqlEndpoint = "https://leetcode.com/graphql";
 const query = `
 query getQuestionDetail($titleSlug: String!) {
   question(titleSlug: $titleSlug) {
-    content
+    content codeSnippets {
+     lang code
+    }
   }
 }
 `;
 
-export async function testCaseFromUrl(url: string): Promise<any> {
+interface TestCase {
+  input: string;
+  output: string;
+}
+export interface snippet {
+  lang: string;
+  code: string;
+}
+
+export async function testCaseandCodeSnippetFromUrl(url: string): Promise<any> {
   try {
     const problemName = extractProblemName(url);
     try {
@@ -19,8 +30,14 @@ export async function testCaseFromUrl(url: string): Promise<any> {
         variables: { titleSlug: problemName },
       });
       const content = response.data.data.question.content;
+      const snippet: snippet[] =
+        response.data.data.question.codeSnippets.filter(
+          (snippet: snippet) =>
+            snippet.lang === "C++" || snippet.lang === "Python"
+        );
+
       const testCases = extractTestCases(content);
-      return testCases;
+      return [testCases, snippet];
     } catch (error) {
       console.error(error);
     }
@@ -35,11 +52,6 @@ export function extractProblemName(url: string): string {
     return match[1];
   }
   throw new Error("Invalid LeetCode URL format");
-}
-
-interface TestCase {
-  input: string;
-  output: string;
 }
 
 export const extractTestCases = (content: string): TestCase[] => {
@@ -76,12 +88,6 @@ function processInput(input: string): string {
   const processedValues: string[] = [];
 
   for (let part of parts) {
-    // Remove variable name and '=' if present
-    const equalIndex = part.indexOf("=");
-    if (equalIndex !== -1) {
-      part = part.substring(equalIndex + 1).trim();
-    }
-
     // If this part is an array (contains '[' and ']')
     if (part.includes("[") && part.includes("]")) {
       processedValues.push(part.trim());

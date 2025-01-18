@@ -1,159 +1,168 @@
 import * as vscode from "vscode";
-import * as fs from "fs/promises";
+import * as fs from "fs";
 import * as path from "path";
-import { spawn } from "child_process";
-import { ResultsDisplayService } from "./resultDisplay";
+import { exec } from "child_process";
+import { promisify } from "util";
+
+const execAsync = promisify(exec);
 
 export class CodeExecutor {
-  private workspacePath: string;
-  private resultsDisplay: ResultsDisplayService;
+  constructor(private workspaceRoot: string) {}
 
-  constructor() {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) {
-      throw new Error("No workspace folder found");
+  private async compileCpp(filePath: string): Promise<void> {
+    const outputPath = path.join(path.dirname(filePath), "solution.exe");
+    const compileCommand = `g++ "${filePath}" -o "${outputPath}"`;
+
+    try {
+      await execAsync(compileCommand);
+    } catch (error: any) {
+      // Show compilation error in terminal
+      const terminal = vscode.window.createTerminal("Compilation Error");
+      terminal.show();
+      terminal.sendText(`Compilation Error: ${error.stderr}`);
+      throw new Error("Compilation failed");
     }
-    this.workspacePath = workspaceFolder.uri.fsPath;
-    this.resultsDisplay = new ResultsDisplayService();
+  }
+
+  private async generateRunner(
+    language: string,
+    filePath: string,
+    inputPath: string
+  ): Promise<string> {
+    const dir = path.dirname(filePath);
+    const runnerPath = path.join(
+      dir,
+      "runner." + (language === "Python" ? "py" : "cpp")
+    );
+    const sourceCode = fs.readFileSync(filePath, "utf8");
+    const inputs = fs.readFileSync(inputPath, "utf8").trim().split("\n");
+
+    if (language === "Python") {
+      const runnerCode = `
+import sys
+from typing import List
+
+${sourceCode}
+
+def parse_input(line):
+    parts = line.strip().split(']')
+    arr_str = parts[0].strip('[') + ']'
+    target = int(parts[1].strip())
+    arr = eval(arr_str)
+    return arr, target
+
+def main():
+    solution = Solution()
+    with open('${path.join(dir, "output.txt")}', 'w') as f:
+        for line in sys.stdin:
+            if not line.strip():
+                continue
+            arr, target = parse_input(line)
+            result = solution.twoSum(arr, target)
+            f.write(str(result) + '\\n')
+
+if __name__ == '__main__':
+    main()
+`;
+      fs.writeFileSync(runnerPath, runnerCode);
+    } else {
+      const runnerCode = `
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <vector>
+#include <sstream>
+${sourceCode}
+
+std::vector<int> parseArray(const std::string& str) {
+    std::vector<int> result;
+    std::string cleaned = str.substr(1, str.find(']') - 1); // Remove brackets
+    std::stringstream ss(cleaned);
+    int num;
+    while (ss >> num) {
+        result.push_back(num);
+    }
+    return result;
+}
+
+int main() {
+    Solution solution;
+    std::ofstream outFile("${path.join(dir, "output.txt")}");
+    std::string line;
+    
+    while (std::getline(std::cin, line)) {
+        if (line.empty()) continue;
+        
+        size_t bracketEnd = line.find(']');
+        std::string arrStr = line.substr(0, bracketEnd + 1);
+        int target;
+        std::stringstream(line.substr(bracketEnd + 1)) >> target;
+        
+        std::vector<int> nums = parseArray(arrStr);
+        std::vector<int> result = solution.twoSum(nums, target);
+        
+        outFile << "[";
+        for (size_t i = 0; i < result.size(); ++i) {
+            if (i > 0) outFile << ", ";
+            outFile << result[i];
+        }
+        outFile << "]" << std::endl;
+    }
+    return 0;
+}
+`;
+      fs.writeFileSync(runnerPath, runnerCode);
+    }
+    return runnerPath;
   }
 
   async executeCode(filePath: string, language: string): Promise<void> {
     try {
-      switch (language) {
-        case "cpp":
-          await this.runCpp(filePath);
-          break;
-        case "python":
-          await this.runPython(filePath);
-          break;
-        default:
-          throw new Error(`Unsupported language: ${language}`);
-      }
-    } catch (error: any) {
-      vscode.window.showErrorMessage(`Execution error: ${error.message}`);
-    }
-  }
+      const dir = path.dirname(filePath);
+      const inputPath = path.join(dir, "test_cases", "input.txt");
+      const outputPath = path.join(dir, "test_cases", "output.txt");
 
-  private async runCpp(filePath: string): Promise<void> {
-    const testCasesDir = path.join(this.workspacePath, "test_cases");
-    const executableFile = path.join(path.dirname(filePath), "solution");
-
-    // Compile C++ code
-    await new Promise<void>((resolve, reject) => {
-      const compileProcess = spawn("g++", [filePath, "-o", executableFile]);
-
-      compileProcess.on("close", (code) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          reject(new Error("Compilation failed"));
-        }
-      });
-
-      compileProcess.stderr.on("data", (data) => {
-        reject(new Error(`Compilation error: ${data.toString()}`));
-      });
-    });
-
-    await this.runTests(executableFile, testCasesDir, "cpp");
-  }
-
-  private async runPython(filePath: string): Promise<void> {
-    const testCasesDir = path.join(this.workspacePath, "test_cases");
-    await this.runTests(filePath, testCasesDir, "python");
-  }
-
-  private async runTests(
-    executablePath: string,
-    testCasesDir: string,
-    language: string
-  ): Promise<void> {
-    const inputPath = path.join(testCasesDir, "input.txt");
-    const expectedOutputPath = path.join(testCasesDir, "expected_output.txt");
-
-    const input = await fs.readFile(inputPath, "utf8");
-    const expectedOutput = await fs.readFile(expectedOutputPath, "utf8");
-
-    const testCases = input.trim().split("\n");
-    const expectedOutputs = expectedOutput.trim().split("\n");
-
-    let allTestsPassed = true;
-    const results = [];
-    const outputs = [];
-
-    for (let i = 0; i < testCases.length; i++) {
-      const testCase = testCases[i];
-      const expected = expectedOutputs[i].trim();
-
-      const actual = await this.executeSingleTest(
-        executablePath,
-        testCase,
-        language
+      // Generate runner code that handles input/output
+      const runnerPath = await this.generateRunner(
+        language,
+        filePath,
+        inputPath
       );
 
-      const passed = actual.trim() === expected;
-      if (!passed) {
-        allTestsPassed = false;
-      }
+      if (language === "cpp") {
+        // Compile the runner
+        await this.compileCpp(runnerPath);
+        const execPath = path.join(dir, "solution.exe");
 
-      results.push({ testCase: i + 1, passed });
-      outputs.push({ expectedOutput: expected, actualOutput: actual.trim() });
-    }
-
-    // Display results
-    this.resultsDisplay.displayResults(allTestsPassed);
-    this.resultsDisplay.updateStatusBar(allTestsPassed);
-    this.resultsDisplay.writeResultsToOutputPanel(results, outputs);
-  }
-
-  private async executeSingleTest(
-    executablePath: string,
-    input: string,
-    language: string
-  ): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const cmd = language === "python" ? "python3" : executablePath;
-      const args = language === "python" ? [executablePath] : [];
-      const process = spawn(cmd, args, {
-        cwd: path.dirname(executablePath),
-      });
-
-      let output = "";
-      let error = "";
-
-      process.stdout.on("data", (data) => {
-        output += data.toString();
-      });
-
-      process.stderr.on("data", (data) => {
-        error += data.toString();
-      });
-
-      process.on("close", (code) => {
-        if (code === 0) {
-          resolve(output);
-        } else {
-          reject(new Error(`Process failed with error: ${error}`));
+        try {
+          const { stderr } = await execAsync(`"${execPath}" < "${inputPath}"`);
+          if (stderr) {
+            throw new Error(stderr);
+          }
+        } catch (error: any) {
+          const terminal = vscode.window.createTerminal("Runtime Error");
+          terminal.show();
+          terminal.sendText(`Runtime Error: ${error.message}`);
+          throw error;
         }
-      });
-
-      process.on("error", reject);
-
-      const timeout = setTimeout(() => {
-        process.kill();
-        reject(new Error("Process timed out"));
-      }, 5000);
-
-      process.stdin.write(input);
-      process.stdin.end();
-
-      process.on("close", () => {
-        clearTimeout(timeout);
-      });
-    });
-  }
-
-  dispose() {
-    this.resultsDisplay.dispose();
+      } else {
+        // Execute Python code
+        try {
+          const { stderr } = await execAsync(
+            `python "${runnerPath}" < "${inputPath}"`
+          );
+          if (stderr) {
+            throw new Error(stderr);
+          }
+        } catch (error: any) {
+          const terminal = vscode.window.createTerminal("Runtime Error");
+          terminal.show();
+          terminal.sendText(`Runtime Error: ${error.message}`);
+          throw error;
+        }
+      }
+    } catch (error) {
+      throw error;
+    }
   }
 }

@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import {
   extractProblemName,
-  testCaseFromUrl,
+  testCaseandCodeSnippetFromUrl,
 } from "../services/leetCodeScraper";
 import { saveTestCases, createProblemFile } from "../services/fileHandler";
 import { setupLayout } from "../ui/layoutManager";
@@ -26,10 +26,12 @@ export async function fetchTestCases() {
     const fetchingMessage = vscode.window.setStatusBarMessage(
       `Fetching test cases and arranging the view`
     );
-    const testCases = await testCaseFromUrl(questionLink);
+    const testCaseandCodeSnippet = await testCaseandCodeSnippetFromUrl(
+      questionLink
+    );
 
-    if (testCases && Array.isArray(testCases)) {
-      await saveTestCases(testCases);
+    if (testCaseandCodeSnippet && Array.isArray(testCaseandCodeSnippet)) {
+      await saveTestCases(testCaseandCodeSnippet[0]);
       fetchingMessage.dispose();
 
       const language = await askUserForLanguage();
@@ -48,7 +50,8 @@ export async function fetchTestCases() {
       const mainFilePath = await createProblemFile(
         problemName,
         language,
-        workspacePath
+        workspacePath,
+        testCaseandCodeSnippet[1]
       );
 
       await setupLayout(mainFilePath);
