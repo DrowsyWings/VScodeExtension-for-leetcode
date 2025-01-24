@@ -3,7 +3,7 @@ import * as fs from "fs/promises";
 import * as path from "path";
 
 export class TestCasesPanel {
-  public static currentPanel: TestCasesPanel | undefined;
+  private static currentPanel: TestCasesPanel | undefined;
   private readonly _panel: vscode.WebviewPanel;
   private _disposables: vscode.Disposable[] = [];
 
@@ -38,12 +38,12 @@ export class TestCasesPanel {
 
   public async updateContent() {
     try {
-      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-      if (!workspaceFolder) {
+      const workspace = vscode.workspace.workspaceFolders?.[0];
+      if (!workspace) {
         throw new Error("No workspace folder found");
       }
 
-      const testCasesPath = path.join(workspaceFolder.uri.fsPath, "test_cases");
+      const testCasesPath = path.join(workspace.uri.fsPath, "test_cases");
       const input = await fs.readFile(
         path.join(testCasesPath, "input.txt"),
         "utf8"
@@ -52,15 +52,11 @@ export class TestCasesPanel {
         path.join(testCasesPath, "expected_output.txt"),
         "utf8"
       );
-      const output = await fs
-        .readFile(path.join(testCasesPath, "output.txt"), "utf8")
-        .catch(() => "");
 
       this._panel.webview.postMessage({
         type: "update",
         input,
         expectedOutput,
-        output,
       });
     } catch (error) {
       vscode.window.showErrorMessage(`Error updating test cases: ${error}`);
@@ -69,13 +65,13 @@ export class TestCasesPanel {
 
   private async saveInput(input: string) {
     try {
-      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-      if (!workspaceFolder) {
+      const workspace = vscode.workspace.workspaceFolders?.[0];
+      if (!workspace) {
         throw new Error("No workspace folder found");
       }
 
       const inputPath = path.join(
-        workspaceFolder.uri.fsPath,
+        workspace.uri.fsPath,
         "test_cases",
         "input.txt"
       );
@@ -145,16 +141,6 @@ export class TestCasesPanel {
             button:hover {
               background: var(--vscode-button-hoverBackground);
             }
-            .test-case {
-              margin-bottom: 15px;
-              padding: 10px;
-              border: 1px solid var(--vscode-input-border);
-              border-radius: 3px;
-            }
-            .test-case-header {
-              font-weight: bold;
-              margin-bottom: 8px;
-            }
           </style>
         </head>
         <body>
@@ -172,10 +158,6 @@ export class TestCasesPanel {
             <div class="section">
               <h3>Expected Output</h3>
               <pre id="expected-output"></pre>
-            </div>
-            <div class="section">
-              <h3>Your Output</h3>
-              <pre id="output"></pre>
             </div>
           </div>
           <script>
@@ -195,7 +177,6 @@ export class TestCasesPanel {
               if (message.type === 'update') {
                 inputTextarea.value = message.input;
                 document.getElementById('expected-output').textContent = message.expectedOutput;
-                document.getElementById('output').textContent = message.output || 'No output yet';
               }
             });
 
