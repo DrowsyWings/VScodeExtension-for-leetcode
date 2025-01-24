@@ -1,168 +1,116 @@
 import * as vscode from "vscode";
-import * as fs from "fs";
+import { spawn } from "child_process";
+import * as os from "os";
 import * as path from "path";
-import { exec } from "child_process";
-import { promisify } from "util";
 
-const execAsync = promisify(exec);
+export async function compileCpp(
+  codePath: string,
+  workspaceFolder: string
+): Promise<string> {
+  const compiler = "g++";
+  const outputExe = path.join(workspaceFolder, "problem_executable");
+  const args = [codePath, "-o", outputExe, "-std=c++17"];
 
-export class CodeExecutor {
-  constructor(private workspaceRoot: string) {}
+  return new Promise((resolve, reject) => {
+    const process = spawn(compiler, args);
 
-  private async compileCpp(filePath: string): Promise<void> {
-    const outputPath = path.join(path.dirname(filePath), "solution.exe");
-    const compileCommand = `g++ "${filePath}" -o "${outputPath}"`;
+    let stderr = "";
+    process.stderr.on("data", (data) => {
+      stderr += data.toString();
+    });
 
-    try {
-      await execAsync(compileCommand);
-    } catch (error: any) {
-      // Show compilation error in terminal
-      const terminal = vscode.window.createTerminal("Compilation Error");
-      terminal.show();
-      terminal.sendText(`Compilation Error: ${error.stderr}`);
-      throw new Error("Compilation failed");
-    }
-  }
-
-  private async generateRunner(
-    language: string,
-    filePath: string,
-    inputPath: string
-  ): Promise<string> {
-    const dir = path.dirname(filePath);
-    const runnerPath = path.join(
-      dir,
-      "runner." + (language === "Python" ? "py" : "cpp")
-    );
-    const sourceCode = fs.readFileSync(filePath, "utf8");
-    const inputs = fs.readFileSync(inputPath, "utf8").trim().split("\n");
-
-    if (language === "Python") {
-      const runnerCode = `
-import sys
-from typing import List
-
-${sourceCode}
-
-def parse_input(line):
-    parts = line.strip().split(']')
-    arr_str = parts[0].strip('[') + ']'
-    target = int(parts[1].strip())
-    arr = eval(arr_str)
-    return arr, target
-
-def main():
-    solution = Solution()
-    with open('${path.join(dir, "output.txt")}', 'w') as f:
-        for line in sys.stdin:
-            if not line.strip():
-                continue
-            arr, target = parse_input(line)
-            result = solution.twoSum(arr, target)
-            f.write(str(result) + '\\n')
-
-if __name__ == '__main__':
-    main()
-`;
-      fs.writeFileSync(runnerPath, runnerCode);
-    } else {
-      const runnerCode = `
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <vector>
-#include <sstream>
-${sourceCode}
-
-std::vector<int> parseArray(const std::string& str) {
-    std::vector<int> result;
-    std::string cleaned = str.substr(1, str.find(']') - 1); // Remove brackets
-    std::stringstream ss(cleaned);
-    int num;
-    while (ss >> num) {
-        result.push_back(num);
-    }
-    return result;
-}
-
-int main() {
-    Solution solution;
-    std::ofstream outFile("${path.join(dir, "output.txt")}");
-    std::string line;
-    
-    while (std::getline(std::cin, line)) {
-        if (line.empty()) continue;
-        
-        size_t bracketEnd = line.find(']');
-        std::string arrStr = line.substr(0, bracketEnd + 1);
-        int target;
-        std::stringstream(line.substr(bracketEnd + 1)) >> target;
-        
-        std::vector<int> nums = parseArray(arrStr);
-        std::vector<int> result = solution.twoSum(nums, target);
-        
-        outFile << "[";
-        for (size_t i = 0; i < result.size(); ++i) {
-            if (i > 0) outFile << ", ";
-            outFile << result[i];
-        }
-        outFile << "]" << std::endl;
-    }
-    return 0;
-}
-`;
-      fs.writeFileSync(runnerPath, runnerCode);
-    }
-    return runnerPath;
-  }
-
-  async executeCode(filePath: string, language: string): Promise<void> {
-    try {
-      const dir = path.dirname(filePath);
-      const inputPath = path.join(dir, "test_cases", "input.txt");
-      const outputPath = path.join(dir, "test_cases", "output.txt");
-
-      // Generate runner code that handles input/output
-      const runnerPath = await this.generateRunner(
-        language,
-        filePath,
-        inputPath
-      );
-
-      if (language === "cpp") {
-        // Compile the runner
-        await this.compileCpp(runnerPath);
-        const execPath = path.join(dir, "solution.exe");
-
-        try {
-          const { stderr } = await execAsync(`"${execPath}" < "${inputPath}"`);
-          if (stderr) {
-            throw new Error(stderr);
-          }
-        } catch (error: any) {
-          const terminal = vscode.window.createTerminal("Runtime Error");
-          terminal.show();
-          terminal.sendText(`Runtime Error: ${error.message}`);
-          throw error;
-        }
+    process.on("close", (code) => {
+      if (code === 0) {
+        resolve(outputExe);
       } else {
-        // Execute Python code
-        try {
-          const { stderr } = await execAsync(
-            `python "${runnerPath}" < "${inputPath}"`
-          );
-          if (stderr) {
-            throw new Error(stderr);
-          }
-        } catch (error: any) {
-          const terminal = vscode.window.createTerminal("Runtime Error");
-          terminal.show();
-          terminal.sendText(`Runtime Error: ${error.message}`);
-          throw error;
-        }
+        reject(new Error(`Compilation failed: ${stderr}`));
       }
-    } catch (error) {
-      throw error;
+    });
+  });
+}
+
+export async function execute(
+  executablePath: string,
+  input: string,
+  language: "cpp" | "python"
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let process;
+    const isWindows = os.platform() === "win32";
+    const pythonCommand = isWindows ? "python" : "python3";
+
+    if (language === "cpp") {
+      process = spawn(executablePath, [], { stdio: "pipe" });
+    } else if (language === "python") {
+      process = spawn(pythonCommand, [executablePath], {
+        stdio: "pipe",
+      });
+    } else {
+      reject(new Error("Unsupported language"));
+      return;
+    }
+
+    let stdout = "";
+    let stderr = "";
+    process.stdout.on("data", (data) => {
+      stdout += data.toString();
+    });
+    process.stderr.on("data", (data) => {
+      stderr += data.toString();
+    });
+
+    process.stdin.write(input);
+    process.stdin.end();
+
+    process.on("close", (code) => {
+      if (code !== 0) {
+        reject(new Error(`Execution error: ${stderr}`));
+      } else {
+        resolve(stdout.trim());
+      }
+    });
+  });
+}
+
+export function parseTestCaseLine(
+  line: string
+): Array<{ key: string; value: any }> {
+  const regex = /(\w+)\s*=\s*((?:\[.*?\]|[^=\s])+)/g;
+  const variables: Array<{ key: string; value: any }> = [];
+  let match;
+
+  while ((match = regex.exec(line)) !== null) {
+    const key = match[1];
+    let valueStr = match[2].trim();
+
+    if (valueStr.startsWith("[") && valueStr.endsWith("]")) {
+      valueStr = valueStr.slice(1, -1).trim();
+      const elements = valueStr.split(/\s+/).map((e) => {
+        const num = Number(e);
+        return isNaN(num) ? e : num;
+      });
+      variables.push({ key, value: elements });
+    } else {
+      const num = Number(valueStr);
+      variables.push({ key, value: isNaN(num) ? valueStr : num });
     }
   }
+
+  return variables;
+}
+
+export function generateInputString(
+  variables: Array<{ key: string; value: any }>
+): string {
+  return (
+    variables
+      .map((v) => {
+        if (Array.isArray(v.value)) {
+          return v.value.join(" ");
+        } else {
+          return v.value.toString();
+        }
+      })
+      .join("\n") + "\n"
+  );
 }
