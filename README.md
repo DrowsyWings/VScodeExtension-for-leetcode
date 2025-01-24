@@ -1,71 +1,122 @@
-# cph-for-leetcode README
+# LeetCode CPH Extension for VSCode
 
-This is the README for your extension "cph-for-leetcode". After writing up a brief description, we recommend including the following sections.
-
-## Features
-
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
-
-For example if there is an image subfolder under your extension project workspace:
-
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
-
-## Requirements
-
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
-
-## Extension Settings
-
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
+This extension is designed to help competitive programmers and developers practice and solve LeetCode problems directly within Visual Studio Code. It supports C++ and Python, allowing users to fetch problem statements, test cases, and run their solutions locally. The extension provides a seamless workflow for debugging and verifying solutions against expected outputs.
 
 ---
 
-## Following extension guidelines
+## Features
 
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
+1. **Fetch Problem Statement and Test Cases:**
 
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
+   - Users can fetch problem statements and test cases directly from LeetCode by providing the problem URL.
+   - The extension uses LeetCode's GraphQL API to extract and store test cases locally.
 
-## Working with Markdown
+2. **Write and Test Code:**
 
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
+   - Users can write their solutions in C++ or Python.
+   - The extension allows users to run their code against the fetched test cases to verify correctness.
 
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
+3. **View Results:**
+   - The extension compares the actual output of the user's code with the expected output for each test case.
+   - Discrepancies are highlighted to assist with debugging.
 
-## For more information
+---
 
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
+## Workflow
 
-**Enjoy!**
+1. **Fetch Test Cases:**
+
+   - Run the command `CPH: Fetch Test Cases`.
+   - Input the LeetCode problem URL.
+   - The extension extracts and stores the test cases locally.
+
+2. **Write and Test Code:**
+
+   - Write your solution in the editor.
+   - Run the command `CPH: Run Test Cases` to test your solution locally.
+
+3. **View Results:**
+   - The extension displays a comparison of actual vs expected outputs.
+   - Debug discrepancies directly in the editor.
+
+---
+
+## Project Structure
+
+The project is organized as follows:
+
+```
+├── CHANGELOG.md                  # Changelog for the extension
+├── eslint.config.mjs             # ESLint configuration
+├── package.json                  # NPM package configuration
+├── package-lock.json             # Lock file for dependencies
+├── README.md                     # This file
+├── src                           # Source code directory
+│   ├── commands                  # Command handlers
+│   │   ├── fetchTestCases.ts     # Handles fetching test cases
+│   │   └── runTestCases.ts       # Handles running test cases (currently empty)
+│   ├── extension.ts              # Entry point for the extension
+│   ├── services                  # Service layer for core functionality
+│   │   ├── codeExecutor.ts       # Handles code execution (currently empty)
+│   │   ├── fileHandler.ts        # Handles file operations
+│   │   ├── leetCodeScraper.ts    # Handles scraping LeetCode data
+│   ├── test                      # Test files
+│   │   └── extension.test.ts     # Unit tests for the extension
+│   └── ui                        # User interface components
+│       ├── layoutManager.ts      # Manages UI layout
+│       └── webView.ts            # Handles webview rendering
+├── tsconfig.json                 # TypeScript configuration
+└── vsc-extension-quickstart.md   # Quickstart guide for VSCode extensions
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- [Visual Studio Code](https://code.visualstudio.com/)
+- Node.js and npm installed
+- TypeScript installed globally (`npm install -g typescript`)
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/your-username/leetcode-cph-extension.git
+   ```
+2. Navigate to the project directory:
+   ```bash
+   cd leetcode-cph-extension
+   ```
+3. Install dependencies:
+   ```bash
+   yarn install
+   ```
+4. Open the project in Visual Studio Code:
+   ```bash
+   code .
+   ```
+
+### Building the Extension
+
+1. Run the extension in debug mode:
+   - Press `F5` in Visual Studio Code to launch the extension in a new window.
+
+### Usage
+
+1. Open the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P` on macOS).
+2. Run the command `CPH: Fetch Test Cases` and provide the LeetCode problem URL.
+3. Write your solution in the editor.
+4. Run the command `CPH: Run Test Cases` to test your solution locally.
+5. View the results in the output panel.
+6. To open the panel again, run the command `CPH: Reveal Test Cases`.
+
+---
+
+## Acknowledgments
+
+- Inspired by [Competitive Programming Helper (CPH)](https://github.com/agrawal-d/competitive-programming-helper).
+- Uses LeetCode's GraphQL API for fetching problem data.
+
+---

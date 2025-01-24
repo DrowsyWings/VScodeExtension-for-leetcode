@@ -1,6 +1,7 @@
 {
   "name": "cph-for-leetcode",
   "displayName": "cph for LeetCode",
+  "publisher": "drowsywings",
   "description": "",
   "version": "0.0.1",
   "engines": {
