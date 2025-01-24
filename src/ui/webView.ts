@@ -14,11 +14,17 @@ export class TestCasesPanel {
     this.setupWebviewMessageListener();
   }
 
+  public static reveal() {
+    const panel = TestCasesPanel.createOrShow();
+    panel.updateContent();
+    return panel;
+  }
+
   public static createOrShow() {
     const column = vscode.ViewColumn.Two;
 
     if (TestCasesPanel.currentPanel) {
-      TestCasesPanel.currentPanel._panel.reveal(column);
+      TestCasesPanel.currentPanel._panel.reveal(column, true);
       return TestCasesPanel.currentPanel;
     }
 
@@ -44,14 +50,33 @@ export class TestCasesPanel {
       }
 
       const testCasesPath = path.join(workspace.uri.fsPath, "test_cases");
-      const input = await fs.readFile(
-        path.join(testCasesPath, "input.txt"),
-        "utf8"
+
+      try {
+        await fs.access(testCasesPath);
+      } catch {
+        throw new Error("Test cases folder not found");
+      }
+
+      const inputPath = path.join(testCasesPath, "input.txt");
+      const expectedOutputPath = path.join(
+        testCasesPath,
+        "expected_output.txt"
       );
-      const expectedOutput = await fs.readFile(
-        path.join(testCasesPath, "expected_output.txt"),
-        "utf8"
-      );
+
+      let input = "";
+      let expectedOutput = "";
+
+      try {
+        input = await fs.readFile(inputPath, "utf8");
+      } catch {
+        throw new Error("input.txt not found in test_cases folder");
+      }
+
+      try {
+        expectedOutput = await fs.readFile(expectedOutputPath, "utf8");
+      } catch {
+        throw new Error("expected_output.txt not found in test_cases folder");
+      }
 
       this._panel.webview.postMessage({
         type: "update",
@@ -59,7 +84,10 @@ export class TestCasesPanel {
         expectedOutput,
       });
     } catch (error) {
-      vscode.window.showErrorMessage(`Error updating test cases: ${error}`);
+      this._panel.webview.postMessage({
+        type: "error",
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -141,6 +169,13 @@ export class TestCasesPanel {
             button:hover {
               background: var(--vscode-button-hoverBackground);
             }
+            .error {
+              color: var(--vscode-errorForeground);
+              background: var(--vscode-errorBackground);
+              padding: 10px;
+              border-radius: 5px;
+              border: 1px solid var(--vscode-errorBorder);
+            }
           </style>
         </head>
         <body>
@@ -159,11 +194,13 @@ export class TestCasesPanel {
               <h3>Expected Output</h3>
               <pre id="expected-output"></pre>
             </div>
+            <div id="error-message" class="error" style="display: none;"></div>
           </div>
           <script>
             const vscode = acquireVsCodeApi();
             const inputTextarea = document.getElementById('input');
             const saveButton = document.getElementById('saveInput');
+            const errorMessage = document.getElementById('error-message');
 
             saveButton.addEventListener('click', () => {
               vscode.postMessage({
@@ -177,6 +214,10 @@ export class TestCasesPanel {
               if (message.type === 'update') {
                 inputTextarea.value = message.input;
                 document.getElementById('expected-output').textContent = message.expectedOutput;
+                errorMessage.style.display = 'none';
+              } else if (message.type === 'error') {
+                errorMessage.textContent = message.message;
+                errorMessage.style.display = 'block';
               }
             });
 

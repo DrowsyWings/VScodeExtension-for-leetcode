@@ -20,6 +20,10 @@
       {
         "command": "cph.RunTestCases",
         "title": "CPH: Run Test Cases"
+      },
+      {
+        "command": "cph.revealTestCasesPanel",
+        "title": "CPH: Reveal Test Cases"
       }
     ]
   },
