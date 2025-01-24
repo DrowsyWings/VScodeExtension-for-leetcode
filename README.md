@@ -3,6 +3,8 @@
 This extension is designed to help competitive programmers and developers practice and solve LeetCode problems directly within Visual Studio Code. It supports C++ and Python, allowing users to fetch problem statements, test cases, and run their solutions locally. The extension provides a seamless workflow for debugging and verifying solutions against expected outputs.
 
 ---
+## Published link
+[VScodeExtension-for-leetcode](https://marketplace.visualstudio.com/items?itemName=drowsywings.cph-for-leetcode)
 
 ## Features
 
@@ -38,38 +40,12 @@ This extension is designed to help competitive programmers and developers practi
 3. **View Results:**
    - The extension displays a comparison of actual vs expected outputs.
    - Debug discrepancies directly in the editor.
+4. **Bonus Command:**
+  - To open the side panel again
+  - Run the command `CPH: Reveal Test Cases`
 
 ---
 
-## Project Structure
-
-The project is organized as follows:
-
-```
-├── CHANGELOG.md                  # Changelog for the extension
-├── eslint.config.mjs             # ESLint configuration
-├── package.json                  # NPM package configuration
-├── package-lock.json             # Lock file for dependencies
-├── README.md                     # This file
-├── src                           # Source code directory
-│   ├── commands                  # Command handlers
-│   │   ├── fetchTestCases.ts     # Handles fetching test cases
-│   │   └── runTestCases.ts       # Handles running test cases (currently empty)
-│   ├── extension.ts              # Entry point for the extension
-│   ├── services                  # Service layer for core functionality
-│   │   ├── codeExecutor.ts       # Handles code execution (currently empty)
-│   │   ├── fileHandler.ts        # Handles file operations
-│   │   ├── leetCodeScraper.ts    # Handles scraping LeetCode data
-│   ├── test                      # Test files
-│   │   └── extension.test.ts     # Unit tests for the extension
-│   └── ui                        # User interface components
-│       ├── layoutManager.ts      # Manages UI layout
-│       └── webView.ts            # Handles webview rendering
-├── tsconfig.json                 # TypeScript configuration
-└── vsc-extension-quickstart.md   # Quickstart guide for VSCode extensions
-```
-
----
 
 ## Getting Started
 
@@ -83,11 +59,11 @@ The project is organized as follows:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/leetcode-cph-extension.git
+   git clone https://github.com/DrowsyWings/VScodeExtension-for-leetcode.git
    ```
 2. Navigate to the project directory:
    ```bash
-   cd leetcode-cph-extension
+   cd VScodeExtension-for-leetcode
    ```
 3. Install dependencies:
    ```bash
