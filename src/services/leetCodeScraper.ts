@@ -45,7 +45,9 @@ export async function testCaseandCodeSnippetFromUrl(url: string): Promise<any> {
 }
 
 export function extractProblemName(url: string): string {
-  const match = url.match(/https:\/\/leetcode\.com\/problems\/([^\/]+)\//);
+  const match = url.match(
+    /https:\/\/leetcode\.com\/problems\/([^\/]+)(?:\/|$|\/description\/)/
+  );
   if (match && match[1]) {
     return match[1];
   }
