@@ -104,9 +104,32 @@ export class TestCasesPanel {
         "input.txt"
       );
       await fs.writeFile(inputPath, input, "utf8");
-      vscode.window.showInformationMessage("Test cases updated successfully!");
+      vscode.window.showInformationMessage(
+        "Input test cases updated successfully!"
+      );
     } catch (error) {
       vscode.window.showErrorMessage(`Error saving input: ${error}`);
+    }
+  }
+
+  private async saveExpectedOutput(expectedOutput: string) {
+    try {
+      const workspace = vscode.workspace.workspaceFolders?.[0];
+      if (!workspace) {
+        throw new Error("No workspace folder found");
+      }
+
+      const outputPath = path.join(
+        workspace.uri.fsPath,
+        "test_cases",
+        "expected_output.txt"
+      );
+      await fs.writeFile(outputPath, expectedOutput, "utf8");
+      vscode.window.showInformationMessage(
+        "Expected outputs updated successfully!"
+      );
+    } catch (error) {
+      vscode.window.showErrorMessage(`Error saving expected outputs: ${error}`);
     }
   }
 
@@ -165,9 +188,14 @@ export class TestCasesPanel {
               padding: 4px 12px;
               border-radius: 3px;
               cursor: pointer;
+              margin-left: 8px;
             }
             button:hover {
               background: var(--vscode-button-hoverBackground);
+            }
+            .button-group {
+              display: flex;
+              gap: 8px;
             }
             .error {
               color: var(--vscode-errorForeground);
@@ -183,29 +211,48 @@ export class TestCasesPanel {
             <div class="section">
               <h3>
                 Test Cases Input
-                <button id="saveInput">Save Changes</button>
+                <div class="button-group">
+                  <button id="saveInput">Save Input</button>
+                </div>
               </h3>
               <textarea id="input" placeholder="Enter your test cases here..."></textarea>
               <div style="margin-top: 10px;">
-                <small>Each line represents a new test case. Save changes to update the test file.</small>
+                <small>Each line represents a new test case</small>
               </div>
             </div>
             <div class="section">
-              <h3>Expected Output</h3>
-              <pre id="expected-output"></pre>
+              <h3>
+                Expected Output
+                <div class="button-group">
+                  <button id="saveExpected">Save Expected</button>
+                </div>
+              </h3>
+              <textarea id="expected" placeholder="Enter expected outputs here..."></textarea>
+              <div style="margin-top: 10px;">
+                <small>Each line corresponds to a test case output</small>
+              </div>
             </div>
             <div id="error-message" class="error" style="display: none;"></div>
           </div>
           <script>
             const vscode = acquireVsCodeApi();
             const inputTextarea = document.getElementById('input');
-            const saveButton = document.getElementById('saveInput');
+            const expectedTextarea = document.getElementById('expected');
+            const saveInputBtn = document.getElementById('saveInput');
+            const saveExpectedBtn = document.getElementById('saveExpected');
             const errorMessage = document.getElementById('error-message');
 
-            saveButton.addEventListener('click', () => {
+            saveInputBtn.addEventListener('click', () => {
               vscode.postMessage({
                 type: 'saveInput',
                 value: inputTextarea.value
+              });
+            });
+
+            saveExpectedBtn.addEventListener('click', () => {
+              vscode.postMessage({
+                type: 'saveExpected',
+                value: expectedTextarea.value
               });
             });
 
@@ -213,7 +260,7 @@ export class TestCasesPanel {
               const message = event.data;
               if (message.type === 'update') {
                 inputTextarea.value = message.input;
-                document.getElementById('expected-output').textContent = message.expectedOutput;
+                expectedTextarea.value = message.expectedOutput;
                 errorMessage.style.display = 'none';
               } else if (message.type === 'error') {
                 errorMessage.textContent = message.message;
@@ -221,10 +268,13 @@ export class TestCasesPanel {
               }
             });
 
-            inputTextarea.addEventListener('input', function() {
-              this.style.height = 'auto';
-              this.style.height = (this.scrollHeight) + 'px';
-            });
+            const handleTextareaResize = (element) => {
+              element.style.height = 'auto';
+              element.style.height = (element.scrollHeight) + 'px';
+            };
+
+            inputTextarea.addEventListener('input', () => handleTextareaResize(inputTextarea));
+            expectedTextarea.addEventListener('input', () => handleTextareaResize(expectedTextarea));
           </script>
         </body>
       </html>
@@ -240,6 +290,9 @@ export class TestCasesPanel {
             break;
           case "saveInput":
             await this.saveInput(message.value);
+            break;
+          case "saveExpected":
+            await this.saveExpectedOutput(message.value);
             break;
         }
       },

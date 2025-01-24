@@ -50,13 +50,6 @@ export async function runTestCasesCommand(context: vscode.ExtensionContext) {
     .split("\n")
     .filter((line) => line.trim() !== "");
 
-  if (testCases.length !== expectedOutputs.length) {
-    vscode.window.showErrorMessage(
-      "Input and expected output have different number of test cases"
-    );
-    return;
-  }
-
   let actualOutputs: string[] = [];
   try {
     if (lang === "cpp") {
@@ -95,19 +88,26 @@ export async function runTestCasesCommand(context: vscode.ExtensionContext) {
     const results = [];
     for (let i = 0; i < actualOutputs.length; i++) {
       const actual = actualOutputs[i];
-      const expected = expectedOutputs[i].trim();
+      const expected =
+        i < expectedOutputs.length ? expectedOutputs[i].trim() : "N/A";
+      const passed = i < expectedOutputs.length ? actual === expected : null;
+
       results.push({
         testCase: testCases[i],
         actual,
         expected,
-        passed: actual === expected,
+        passed,
       });
     }
 
-    const passed = results.filter((r) => r.passed).length;
-    const total = results.length;
+    const originalTestCasesCount = expectedOutputs.length;
+    const passed = results
+      .slice(0, originalTestCasesCount)
+      .filter((r) => r.passed).length;
+    const totalRun = actualOutputs.length;
+
     vscode.window.showInformationMessage(
-      `Passed ${passed}/${total} test cases.`
+      `Passed ${passed}/${originalTestCasesCount} official test cases. Run ${totalRun} total cases.`
     );
 
     const panel = vscode.window.createWebviewPanel(
@@ -130,7 +130,13 @@ function getWebviewContent(results: any[]): string {
       (result, index) => `
         <tr>
             <td>Test Case ${index + 1}</td>
-            <td>${result.passed ? "✅ Passed" : "❌ Failed"}</td>
+            <td>${
+              result.passed === null
+                ? "🔵 Custom"
+                : result.passed
+                ? "✅ Passed"
+                : "❌ Failed"
+            }</td>
             <td><pre>${result.actual}</pre></td>
             <td><pre>${result.expected}</pre></td>
         </tr>
@@ -145,6 +151,7 @@ function getWebviewContent(results: any[]): string {
                 table { width: 100%; border-collapse: collapse; }
                 th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
                 pre { margin: 0; }
+                .custom { color: #666; }
             </style>
         </head>
         <body>
@@ -158,6 +165,11 @@ function getWebviewContent(results: any[]): string {
                 </tr>
                 ${rows}
             </table>
+            ${
+              results.some((r) => r.passed === null)
+                ? '<p style="color: #666; margin-top: 15px;">🔵 Custom test cases - No expected output provided</p>'
+                : ""
+            }
         </body>
         </html>
     `;
